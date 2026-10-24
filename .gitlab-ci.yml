@@ -1,0 +1,32 @@
+stages:
+  - test
+  - run
+
+default:
+  image: python:3.14-slim
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+test:
+  stage: test
+  cache:
+    key:
+      files:
+        - requirements.txt
+    paths:
+      - .cache/pip
+  before_script:
+    - pip install -r requirements.txt
+  script:
+    - pytest -v --junitxml=report.xml
+  artifacts:
+    when: always
+    reports:
+      junit: report.xml
+
+run:
+  stage: run
+  script:
+    - python main.py --X 5 --Y 3 --opr sum
+    - python main.py --X 5 --Y 3 --opr sub

@@ -1,0 +1,61 @@
+stages:
+  - lint
+  - test
+  - run
+  - build
+  - deploy
+
+default:
+  image: python:3.14-slim
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  IMAGE_NAME: "$CI_PROJECT_NAME"
+
+lint:
+  stage: lint
+  before_script:
+    - pip install ruff==0.17.2
+  script:
+    - ruff check .
+
+test:
+  stage: test
+  cache:
+    key:
+      files:
+        - requirements.txt
+    paths:
+      - .cache/pip
+  before_script:
+    - pip install -r requirements.txt
+  script:
+    - pytest -v --junitxml=report.xml
+  artifacts:
+    when: always
+    reports:
+      junit: report.xml
+
+run:
+  stage: run
+  script:
+    - python main.py --X 5 --Y 3 --opr sum
+    - python main.py --X 5 --Y 3 --opr sub
+
+build:
+  stage: build
+  image: docker:cli
+  script:
+    - docker build -t "$IMAGE_NAME:$CI_COMMIT_SHORT_SHA" .
+    - docker run --rm "$IMAGE_NAME:$CI_COMMIT_SHORT_SHA" --X 5 --Y 3 --opr sum
+
+deploy:
+  stage: deploy
+  image: docker:cli
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  environment:
+    name: production
+  script:
+    - docker tag "$IMAGE_NAME:$CI_COMMIT_SHORT_SHA" "$IMAGE_NAME:latest"
+    - docker run --rm "$IMAGE_NAME:latest" --X 5 --Y 3 --opr sub

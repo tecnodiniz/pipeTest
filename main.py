@@ -1,9 +1,7 @@
 import argparse
-from sum import sum
+
 from sub import sub
-
-
-
+from sum import sum
 
 if __name__ == '__main__':
 

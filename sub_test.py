@@ -1,4 +1,3 @@
-import pytest
 
 from sub import sub
 

@@ -42,21 +42,20 @@ run:
     - python main.py --X 5 --Y 3 --opr sum
     - python main.py --X 5 --Y 3 --opr sub
 
-# build e deploy usam o Docker do host pelo socket montado no runner
-# build:
-#   stage: build
-#   image: docker:cli
-#   script:
-#     - docker build -t "$IMAGE_NAME:$CI_COMMIT_SHORT_SHA" .
-#     - docker run --rm "$IMAGE_NAME:$CI_COMMIT_SHORT_SHA" --X 5 --Y 3 --opr sum
+build:
+  stage: build
+  image: docker:cli
+  script:
+    - docker build -t "$IMAGE_NAME:$CI_COMMIT_SHORT_SHA" .
+    - docker run --rm "$IMAGE_NAME:$CI_COMMIT_SHORT_SHA" --X 5 --Y 3 --opr sum
 
-# deploy:
-#   stage: deploy
-#   image: docker:cli
-#   rules:
-#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-#   environment:
-#     name: production
-#   script:
-#     - docker tag "$IMAGE_NAME:$CI_COMMIT_SHORT_SHA" "$IMAGE_NAME:latest"
-#     - docker run --rm "$IMAGE_NAME:latest" --X 5 --Y 3 --opr sub
+deploy:
+  stage: deploy
+  image: docker:cli
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  environment:
+    name: production
+  script:
+    - docker tag "$IMAGE_NAME:$CI_COMMIT_SHORT_SHA" "$IMAGE_NAME:latest"
+    - docker run --rm "$IMAGE_NAME:latest" --X 5 --Y 3 --opr sub

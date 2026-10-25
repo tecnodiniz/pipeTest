@@ -1,3 +1,20 @@
+spec:
+  inputs:
+    density:
+      type: number
+      default: 254
+      description: "Densidade (ex: 254)"
+    mode:
+      type: string
+      options: [automatico, manual]
+      default: automatico
+      description: "Modo de execução"
+    test_files:
+      type: string
+      default: ""
+      regex: '^[A-Za-z0-9_./: -]*$'
+      description: "Testes separados por espaço (ex: sum_test.py sub_test.py ou sum_test.py::test_sum). Vazio = todos os *_test.py da branch"
+---
 stages:
   - lint
   - test
@@ -12,15 +29,17 @@ variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   IMAGE_NAME: "$CI_PROJECT_NAME"
 
-lint:
-  stage: lint
-  before_script:
-    - pip install ruff==0.17.2
-  script:
-    - ruff check .
+# Pipeline disparado manualmente (UI "New pipeline", API ou trigger) = execução customizada
+.custom-run: &custom-run
+  if: '$CI_PIPELINE_SOURCE =~ /^(web|api|trigger)$/'
 
-test:
-  stage: test
+.ci-only:
+  rules:
+    - <<: *custom-run
+      when: never
+    - when: on_success
+
+.python-deps:
   cache:
     key:
       files:
@@ -29,6 +48,18 @@ test:
       - .cache/pip
   before_script:
     - pip install -r requirements.txt
+
+lint:
+  stage: lint
+  extends: .ci-only
+  before_script:
+    - pip install ruff==0.17.2
+  script:
+    - ruff check .
+
+test:
+  stage: test
+  extends: [.ci-only, .python-deps]
   script:
     - pytest -v --junitxml=report.xml
   artifacts:
@@ -36,14 +67,36 @@ test:
     reports:
       junit: report.xml
 
+custom-test:
+  stage: test
+  extends: .python-deps
+  rules:
+    - *custom-run
+  variables:
+    DENSITY: "$[[ inputs.density ]]"
+    MODE: "$[[ inputs.mode ]]"
+    TEST_FILES: "$[[ inputs.test_files ]]"
+  script:
+    - python ci/show_params.py
+    # $TEST_FILES sem aspas de propósito (um argumento por arquivo); vazio = pytest descobre todos
+    - pytest -v --junitxml=report.xml $TEST_FILES
+  artifacts:
+    when: always
+    paths:
+      - params.json
+    reports:
+      junit: report.xml
+
 run:
   stage: run
+  extends: .ci-only
   script:
     - python main.py --X 5 --Y 3 --opr sum
     - python main.py --X 5 --Y 3 --opr sub
 
 build:
   stage: build
+  extends: .ci-only
   image: docker:cli
   script:
     - docker build -t "$IMAGE_NAME:$CI_COMMIT_SHORT_SHA" .
@@ -53,6 +106,8 @@ deploy:
   stage: deploy
   image: docker:cli
   rules:
+    - <<: *custom-run
+      when: never
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   environment:
     name: production
